@@ -43,7 +43,7 @@ def initialize_robot(api):
         #If the connection failed at this point, we also can't proceed, so we need to exit
         if state == dType.DobotConnect.DobotConnect_NoError:
             print("Connected!")
-            name = dType.GetDeviceName(api)
+            name = "Keebler"
             if name[0] == "Not a dobot":
                 dType.DisconnectDobot(api)
                 continue
@@ -136,12 +136,12 @@ parameters = cv2.aruco.DetectorParameters()
 detector = cv2.aruco.ArucoDetector(aruco_dict, parameters)
 
 # Camera calibration (Replace with actual values you obtained from your camera calibration)
-camera_matrix = np.array([[822.6, 0, 288.6], 
-                          [0, 797.1, 178.9], 
-                          [0, 0, 1]], dtype=np.float32)
+camera_matrix = np.array([[1.06662588e+03, 0.00000000e+00, 2.98334535e+02],
+                           [0.00000000e+00, 1.06528571e+03, 2.06004928e+02],
+                           [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]], dtype=np.float32)
                           
 # You should also put the distortion coefficients here                          
-dist_coeffs = np.array([[0.2565114, -0.91183659, -0.02858181, -0.00977053, 0.6133833]], dtype=np.float32).T
+dist_coeffs = np.array([[-5.92414090e-02,  3.49345605e+00,  1.12066722e-03, -2.94255650e-03,-3.87684184e+01]], dtype=np.float32).T
 
 # Open webcam
 cap = cv2.VideoCapture(0)

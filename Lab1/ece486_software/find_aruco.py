@@ -14,8 +14,11 @@ parameters = cv2.aruco.DetectorParameters()
 detector = cv2.aruco.ArucoDetector(aruco_dict, parameters)
 
 # Camera parameters (assuming some default values, you should calibrate your camera)
-camera_matrix = np.array([[1418, 0, 354], [0, 790, 184], [0, 0, 1]], dtype=np.float32)
-dist_coeffs = np.zeros((5, 1), dtype=np.float32)
+camera_matrix = np.array([[1.06662588e+03, 0.00000000e+00, 2.98334535e+02],
+                           [0.00000000e+00, 1.06528571e+03, 2.06004928e+02],
+                           [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]], dtype=np.float32)
+                          
+dist_coeffs = np.array([[-5.92414090e-02,  3.49345605e+00,  1.12066722e-03, -2.94255650e-03,-3.87684184e+01]], dtype=np.float32)
 
 # Open webcam
 cap = cv2.VideoCapture(0)

@@ -133,7 +133,7 @@ initialize_robot(api)
     
     It also prints the pose of the robot. Then, we move the robot by joint angle just to show how it's done.
 """
-for i in range(0, 5):
+for i in range(0, 10):
     if i % 2 == 0:
         offset = 50
     else:
