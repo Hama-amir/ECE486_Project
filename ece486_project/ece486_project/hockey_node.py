@@ -3,6 +3,8 @@ from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped, Twist
 import math
 from enum import Enum
+import argparse
+import sys
 
 # Define our State Machine categories
 class State(Enum):
@@ -12,31 +14,33 @@ class State(Enum):
     GRASPING = 4
 
 class HockeyPlayerNode(Node):
-    def __init__(self):
+# Pass the IDs into the class when it is created
+    def __init__(self, robot_id, stick_id):
         super().__init__('hockey_player')
+        
+        # Dynamically build the exact topic names using f-strings
+        robot_pose_topic = f'/vrpn_mocap/dji_robot_{robot_id}/pose'
+        stick_pose_topic = f'/vrpn_mocap/hockey_sticks_{stick_id}/pose'
+        cmd_vel_topic = f'/robot{robot_id}/cmd_vel'
         
         # Subscribers for Vicon tracking data
         self.pose_sub = self.create_subscription(
-            PoseStamped, '/vrpn_mocap/robot1/pose', self.pose_callback, 10)
+            PoseStamped, robot_pose_topic, self.pose_callback, 10)
+            
         self.stick_sub = self.create_subscription(
-            PoseStamped, '/vrpn_mocap/stick/pose', self.stick_callback, 10)
+            PoseStamped, stick_pose_topic, self.stick_callback, 10)
             
         # Publisher for sending velocity commands to the RoboMaster
         self.cmd_vel_pub = self.create_publisher(
-            Twist, '/robot1/cmd_vel', 10)
+            Twist, cmd_vel_topic, 10)
         
-        # Look-ahead distance 'l' for approximate linearization
         self.l = 0.3 
-        
-        # Variables to store the stick's dynamic target coordinates and heading
         self.target_x = None
         self.target_y = None
         self.target_theta = None
-        
-        # Initialize the State Machine
         self.state = State.NAVIGATING_TO_PRE_GRASP
         
-        self.get_logger().info("Hockey Player Node Started!")
+        self.get_logger().info(f"Started! Controlling Robot {robot_id}, targeting Stick {stick_id}")
 
 
     def pose_callback(self, msg):
@@ -167,8 +171,19 @@ class HockeyPlayerNode(Node):
         self.cmd_vel_pub.publish(twist_msg)
 
 def main(args=None):
-    rclpy.init(args=args)
-    node = HockeyPlayerNode()
+    # Set up the argument parser
+    parser = argparse.ArgumentParser(description='RoboMaster Hockey Player')
+    parser.add_argument('--robot', type=int, default=1, help='The ID number of the robot')
+    parser.add_argument('--stick', type=int, default=1, help='The ID number of the stick')
+    
+    # Parse the custom arguments (ignore standard ROS 2 arguments)
+    custom_args, ros_args = parser.parse_known_args()
+    
+    rclpy.init(args=ros_args)
+    
+    # Pass the parsed IDs into our node
+    node = HockeyPlayerNode(custom_args.robot, custom_args.stick)
+    
     rclpy.spin(node)
     node.destroy_node()
     rclpy.shutdown()
