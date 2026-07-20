@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
 from geometry_msgs.msg import PoseStamped, Twist
 import math
 from enum import Enum
@@ -25,10 +26,10 @@ class HockeyPlayerNode(Node):
         
         # Subscribers for Vicon tracking data
         self.pose_sub = self.create_subscription(
-            PoseStamped, robot_pose_topic, self.pose_callback, 10)
+            PoseStamped, robot_pose_topic, self.pose_callback, qos_profile_sensor_data)
             
         self.stick_sub = self.create_subscription(
-            PoseStamped, stick_pose_topic, self.stick_callback, 10)
+            PoseStamped, stick_pose_topic, self.stick_callback, qos_profile_sensor_data)
             
         # Publisher for sending velocity commands to the RoboMaster
         self.cmd_vel_pub = self.create_publisher(
