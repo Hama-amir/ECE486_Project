@@ -24,6 +24,10 @@ class HockeyPlayerNode(Node):
         
         # Look-ahead distance 'l' for approximate linearization
         self.l = 0.3 
+
+        # Variables to store the stick's target coordinates
+        self.target_x = None
+        self.target_y = None
         
         self.get_logger().info("Hockey Player Node Started!")
 
@@ -44,10 +48,18 @@ class HockeyPlayerNode(Node):
         # Pass these values to our control algorithm
         self.apply_control_law(x, y, theta)
 
+
+    def stick_callback(self, msg):
+        # Continuously update the target coordinates whenever Vicon sees the stick
+        self.target_x = msg.pose.position.x
+        self.target_y = msg.pose.position.y
+
+
     def apply_control_law(self, x, y, theta):
-        # The known coordinates of the stick (Target)
-        target_x = 1.5
-        target_y = 1.0
+        # SAFETY CHECK: Do not compute anything if we haven't seen the stick yet
+        if self.target_x is None or self.target_y is None:
+            self.get_logger().info("Waiting for stick location from Vicon...", throttle_duration_sec=5.0)
+            return
         
         # Calculate the current position of the control point p
         p_x = x + self.l * math.cos(theta)
@@ -55,8 +67,8 @@ class HockeyPlayerNode(Node):
         
         # Calculate the desired velocity of point p to reach the target
         K = 1.0 
-        p_dot_x = K * (target_x - p_x)
-        p_dot_y = K * (target_y - p_y)
+        p_dot_x = K * (self.target_x - p_x)
+        p_dot_y = K * (self.target_y - p_y)
         
         # Approximate Linearization Inverse Math
         v = math.cos(theta) * p_dot_x + math.sin(theta) * p_dot_y
