@@ -1,0 +1,5 @@
+trial,src,dst,planning_time_s,expanded,path_length_mm,n_waypoints,min_planned_clearance_beyond_square_mm,MEASURED_pass_fail,MEASURED_min_clearance_mm,MEASURED_start_offset_mm,MEASURED_end_offset_mm
+1,1,2,0.005,51,49.3,4,46.68,,,,
+1,1,2,0.024,366,125.9,6,61.6,,,,
+1,1,2,0.033,149,125.1,6,66.4,,,,
+1,1,2,0.02,149,125.1,6,67.82,,,,

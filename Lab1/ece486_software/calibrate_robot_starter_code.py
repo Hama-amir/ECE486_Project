@@ -1,3 +1,4 @@
+import os
 import cv2
 import numpy as np
 import DobotDllType as dType
@@ -136,21 +137,25 @@ parameters = cv2.aruco.DetectorParameters()
 detector = cv2.aruco.ArucoDetector(aruco_dict, parameters)
 
 # Camera calibration (Replace with actual values you obtained from your camera calibration)
-camera_matrix = np.array([[1.06662588e+03, 0.00000000e+00, 2.98334535e+02],
-                           [0.00000000e+00, 1.06528571e+03, 2.06004928e+02],
-                           [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]], dtype=np.float32)
+camera_matrix = np.array([[685.83035286,   0,         288.20303825],
+                          [  0,         686.94865624, 227.25786837],
+                          [  0,           0,           1        ]], dtype=np.float32)
                           
 # You should also put the distortion coefficients here                          
-dist_coeffs = np.array([[-5.92414090e-02,  3.49345605e+00,  1.12066722e-03, -2.94255650e-03,-3.87684184e+01]], dtype=np.float32).T
-
+dist_coeffs = np.array([[ 0.20789158, -1.06720034, -0.01013679, -0.0125471,   2.85072425]], dtype=np.float32).T
+                          
 # Open webcam
 cap = cv2.VideoCapture(0)
 
-# Robot positions to move to (you should add your positions here - there are not NEARLY enough points to make this work right now)
+# Robot positions to move to. Use several distinct poses so the rigid transform is well-conditioned.
 robot_positions = [
-    (200, 0, 0, 0),   # (X, Y, Z, R) positions in robot's world frame
-    (200, 10, 0, 0)
+    (200, 0, 0, 0),     # (X, Y, Z, R) positions in robot's world frame
+    (200, 20, 0, 0),
+    (200, 40, 0, 0),
+    (220, 20, 0, 0)
 ]
+
+required_pairs = 3
 
 # Data storage for transformation fitting
 camera_points = []  # Detected marker positions in camera frame
@@ -176,7 +181,7 @@ for pos in robot_positions:
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     corners, ids, _ = detector.detectMarkers(gray)
 
-    if ids is not None:
+    if ids is not None and len(ids) > 0:
         rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(corners, 0.05, camera_matrix, dist_coeffs)
         for i in range(len(ids)):
             # Store corresponding data points
@@ -190,12 +195,21 @@ for pos in robot_positions:
             """
             robot_points.append([X_r/1000, Y_r/1000, Z_r/1000])
             print(f"Recorded: Camera {tvecs[i].flatten()} -> Robot {X_r, Y_r, Z_r}")
+    else:
+        print("No ArUco marker detected at this pose; moving to the next position.")
 
 # Release camera
 cap.release()
 cv2.destroyAllWindows()
 
-# Save data for transformation computation
-np.save("camera_points.npy", np.array(camera_points))
-np.save("robot_points.npy", np.array(robot_points))
+if len(robot_points) < required_pairs:
+    raise RuntimeError(
+        f"Collected only {len(robot_points)} matching point pairs; need at least {required_pairs}. "
+        "Adjust the camera view, place the marker clearly in frame, and run the script again."
+    )
+
+# Save data for transformation computation in the same folder as this script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+np.save(os.path.join(script_dir, "camera_points.npy"), np.array(camera_points, dtype=np.float64))
+np.save(os.path.join(script_dir, "robot_points.npy"), np.array(robot_points, dtype=np.float64))
 print("Data collection complete. Run transformation fitting script next!")

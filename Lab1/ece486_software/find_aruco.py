@@ -1,12 +1,17 @@
+import os
 import cv2
 import numpy as np
+
 
 def transform_camera_to_world(X_c_new, R, T):
     return R @ X_c_new + T
 
-# Load transformation matrices
-R = np.load("R.npy")
-T = np.load("T.npy")
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Load transformation matrices from the same folder as this script
+R = np.load(os.path.join(script_dir, "R.npy"))
+T = np.load(os.path.join(script_dir, "T.npy"))
 
 # Load the predefined dictionary
 aruco_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
@@ -14,12 +19,12 @@ parameters = cv2.aruco.DetectorParameters()
 detector = cv2.aruco.ArucoDetector(aruco_dict, parameters)
 
 # Camera parameters (assuming some default values, you should calibrate your camera)
-camera_matrix = np.array([[1.06662588e+03, 0.00000000e+00, 2.98334535e+02],
-                           [0.00000000e+00, 1.06528571e+03, 2.06004928e+02],
-                           [0.00000000e+00, 0.00000000e+00, 1.00000000e+00]], dtype=np.float32)
+camera_matrix = np.array([[685.83035286,   0,         288.20303825],
+                          [  0,         686.94865624, 227.25786837],
+                          [  0,           0,           1        ]], dtype=np.float32)
                           
-dist_coeffs = np.array([[-5.92414090e-02,  3.49345605e+00,  1.12066722e-03, -2.94255650e-03,-3.87684184e+01]], dtype=np.float32)
-
+dist_coeffs = np.array([[ 0.20789158, -1.06720034, -0.01013679, -0.0125471,   2.85072425]], dtype=np.float32)
+                          
 # Open webcam
 cap = cv2.VideoCapture(0)
 

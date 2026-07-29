@@ -127,11 +127,19 @@ HOW TO RUN:
 import argparse
 import csv
 import math
+import os
+import sys
 import time
+from pathlib import Path
 
 import cv2
 import cv2.aruco as aruco
 import numpy as np
+
+LAB1_SOFTWARE_DIR = Path(__file__).resolve().parent.parent / "Lab1" / "ece486_software"
+if str(LAB1_SOFTWARE_DIR) not in sys.path:
+    sys.path.insert(0, str(LAB1_SOFTWARE_DIR))
+
 import DobotDllType as dType
 
 
@@ -140,19 +148,26 @@ import DobotDllType as dType
 # of each one. Do not guess values here; wrong numbers move the robot wrong.
 # =============================================================================
 
-CAMERA_MATRIX = None   # <-- REPLACE. e.g. np.array([[fx,0,cx],[0,fy,cy],[0,0,1]])
-DIST_COEFFS   = None   # <-- REPLACE. e.g. np.array([k1,k2,p1,p2,k3])
+CAMERA_MATRIX = np.array([
+    [659.15181972, 0, 310.30344121],
+    [0, 658.80133178, 222.92663724],
+    [0, 0, 1],
+], dtype=np.float32)
+                          
+DIST_COEFFS = np.array([
+    [5.01473487e-02, 2.73181783e-01, -1.76984102e-03, -3.81410830e-03, -1.98538389e+00]
+], dtype=np.float32)
 
 # R.npy / T.npy are loaded from disk in load_cam2robot_transform() below, exactly
 # matching find_aruco.py's np.load("R.npy") / np.load("T.npy"). Run
 # compute_transform.py fresh this session so these files exist and are current.
-R_T_DIRECTORY = "."      # <-- ADJUST if R.npy/T.npy are saved somewhere else
+R_T_DIRECTORY = str(LAB1_SOFTWARE_DIR)  # default: shared Lab 1 calibration folder
 
 # Genuine unit ambiguity -- see docstring point 3. Must be verified empirically
 # with --debug-print-only before this script is trusted to move the robot.
-WORLD_POS_SCALE_TO_MM = None   # <-- REPLACE: either 1000.0 or 1.0, see docstring.
+WORLD_POS_SCALE_TO_MM = 1000.0   # <-- REPLACE: either 1000.0 or 1.0, see docstring.
 
-MARKER_SIZE_M = None    # <-- REPLACE. Measure your printed marker's black border, mm/1000.
+MARKER_SIZE_M = 0.05    # <-- REPLACE. Measure your printed marker's black border, mm/1000.
                           #     find_aruco.py hardcodes 0.05 with no placeholder comment --
                           #     see docstring point 4 for why that isn't fully trustworthy.
 
@@ -162,8 +177,8 @@ CAMERA_INDEX = 0         # Matches find_aruco.py's cv2.VideoCapture(0). Adjust i
 
 # Pen z-limits -- MUST be found by manually jogging with DobotLink. See docstring.
 # Left as None on purpose so the script refuses to move until you fill these in.
-Z_SAFE_TRAVEL = None     # <-- REPLACE (mm). May be > 0 depending on pen mount.
-Z_DOT_CONTACT = None     # <-- REPLACE (mm). First-contact height. Do not press
+Z_SAFE_TRAVEL = 50     # <-- REPLACE (mm). May be > 0 depending on pen mount.
+Z_DOT_CONTACT = 5     # <-- REPLACE (mm). First-contact height. Do not press
                           #     more than 5mm further into the spring than this.
 
 # Sourced from Lab 1 PDF / ece486_starter_code.py -- see docstring note on why
@@ -293,15 +308,32 @@ def segment_in_restricted_xy(p0, p1, box):
 
 def load_cam2robot_transform():
     """Load R, T exactly as find_aruco.py does: np.load('R.npy'), np.load('T.npy')."""
-    import os
-    r_path = os.path.join(R_T_DIRECTORY, "R.npy")
-    t_path = os.path.join(R_T_DIRECTORY, "T.npy")
-    if not os.path.exists(r_path) or not os.path.exists(t_path):
-        raise RuntimeError(
-            f"R.npy and/or T.npy not found in '{R_T_DIRECTORY}'. Run "
-            f"compute_transform.py fresh this session first -- see docstring."
-        )
-    return np.load(r_path), np.load(t_path)
+    candidates = []
+    if R_T_DIRECTORY:
+        candidates.append(Path(R_T_DIRECTORY).expanduser())
+    candidates.extend([
+        Path.cwd(),
+        Path(__file__).resolve().parent,
+        LAB1_SOFTWARE_DIR,
+    ])
+
+    seen = set()
+    for base in candidates:
+        if not base:
+            continue
+        base = base.resolve()
+        if base in seen:
+            continue
+        seen.add(base)
+        r_path = base / "R.npy"
+        t_path = base / "T.npy"
+        if r_path.exists() and t_path.exists():
+            return np.load(r_path), np.load(t_path)
+
+    raise RuntimeError(
+        f"R.npy and/or T.npy not found. Looked in: {', '.join(str(p) for p in candidates)}. "
+        f"Run compute_transform.py fresh this session first -- see docstring."
+    )
 
 
 def make_detector():

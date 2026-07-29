@@ -1,0 +1,2 @@
+iteration,marker_id,marker_x_mm,marker_y_mm,marker_z_mm,correction_x_mm,correction_y_mm,correction_z_mm,commanded_x_mm,commanded_y_mm,commanded_z_mm,MEASURED_dot_x_mm_FILL_IN,MEASURED_dot_y_mm_FILL_IN,error_mm_FILL_IN_OR_COMPUTE
+1,1,192.378,-26.514,0.464,0.0,0.0,0.0,192.378,-26.514,0.464,27,30,40

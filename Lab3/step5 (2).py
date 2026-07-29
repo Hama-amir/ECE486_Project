@@ -68,36 +68,37 @@ MARKER_SIZE_M = 0.040    # <-- REPLACE (e.g. 0.040 for a 40mm marker)
 MARKER_ID = 0            # <-- REPLACE if your marker has a different number
 
 # Camera index. 0 is usually the built-in webcam; 1 or 2 for a USB camera.
-CAMERA_INDEX = 1         # <-- ADJUST if the wrong camera opens
+CAMERA_INDEX = 0         # <-- ADJUST if the wrong camera opens
 
 
 # =============================================================================
 # Calibration and validation target lists
 # =============================================================================
-# 12 calibration points: spread across r in {165, 195, 225} mm and z in
-# {-30, -80} mm, varied J1. Kept inside the workspace with a comfortable
-# margin from all four boundaries so the marker is more likely to be visible.
+# 12 calibration points: stay inside the reachable workspace and keep the
+# marker well within the camera field of view. These use moderate radii and
+# a conservative z range that is less likely to cause the marker to leave frame.
 CALIB_TARGETS = [
-    ("calib_00", 116.67, -116.67, -30), ("calib_01", 159.38,  42.71, -30),
-    ("calib_02", 188.36,  -50.47, -30), ("calib_03", 137.89, 137.89, -30),
-    ("calib_04", 159.10, -159.10, -30), ("calib_05", 217.33,  58.23, -30),
-    ("calib_06", 159.38,  -42.71, -80), ("calib_07", 116.67, 116.67, -80),
-    ("calib_08", 137.89, -137.89, -80), ("calib_09", 188.36,  50.47, -80),
-    ("calib_10", 217.33,  -58.23, -80), ("calib_11", 159.10, 159.10, -80),
+    ("calib_00", 120.00, -90.00, -30), ("calib_01", 140.00, -30.00, -30),
+    ("calib_02", 160.00, -60.00, -30), ("calib_03", 160.00,  30.00, -30),
+    ("calib_04", 140.00,  60.00, -30), ("calib_05", 120.00,  90.00, -30),
+    ("calib_06", 130.00, -70.00, -60), ("calib_07", 150.00, -20.00, -60),
+    ("calib_08", 150.00,  20.00, -60), ("calib_09", 130.00,  70.00, -60),
+    ("calib_10", 140.00, -50.00, -80), ("calib_11", 140.00,  50.00, -80),
 ]
 
-# 20 validation points: different r/J1/z grid, disjoint from calibration.
+# 20 validation points: keep them disjoint from calibration while staying in
+# the same safe camera-visible region.
 VALIDATION_TARGETS = [
-    ("val_00",  75.00, -129.90, -15), ("val_01", 129.90, -75.00, -50),
-    ("val_02", 150.00,    0.00, -15), ("val_03", 150.00,   0.00, -95),
-    ("val_04", 129.90,   75.00, -50), ("val_05",  75.00, 129.90, -15),
-    ("val_06",  90.00, -155.88, -50), ("val_07", 155.88, -90.00, -15),
-    ("val_08", 180.00,    0.00, -50), ("val_09", 155.88,  90.00, -15),
-    ("val_10",  90.00,  155.88, -50), ("val_11", 105.00,-181.87, -15),
-    ("val_12", 181.87, -105.00, -50), ("val_13", 210.00,   0.00, -15),
-    ("val_14", 210.00,    0.00, -95), ("val_15", 181.87, 105.00, -50),
-    ("val_16", 105.00,  181.87, -15), ("val_17", 120.00,-207.85, -50),
-    ("val_18", 207.85,    0.00, -50), ("val_19", 147.22, 147.22, -50),
+    ("val_00", 110.00, -100.00, -20), ("val_01", 135.00, -40.00, -40),
+    ("val_02", 150.00,   0.00, -20), ("val_03", 150.00,   0.00, -70),
+    ("val_04", 135.00,  40.00, -40), ("val_05", 110.00, 100.00, -20),
+    ("val_06", 125.00, -80.00, -40), ("val_07", 145.00, -10.00, -20),
+    ("val_08", 145.00,  10.00, -40), ("val_09", 125.00,  80.00, -20),
+    ("val_10", 120.00, -120.00, -50), ("val_11", 140.00, -70.00, -70),
+    ("val_12", 140.00,  70.00, -50), ("val_13", 160.00,   0.00, -20),
+    ("val_14", 160.00,   0.00, -80), ("val_15", 155.00,  50.00, -50),
+    ("val_16", 155.00, -50.00, -50), ("val_17", 130.00, -110.00, -60),
+    ("val_18", 150.00,  90.00, -60), ("val_19", 145.00, -90.00, -60),
 ]
 
 
