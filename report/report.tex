@@ -6,9 +6,11 @@
 \usepackage{hyperref}
 \usepackage{caption}
 \usepackage{siunitx}
+\usepackage{underscore}
+\usepackage{pifont}
 
 \title{ECE 486 Final Project Report}
-\author{Amir Hama}
+\author{Amir Hamadache \& Daksh Verma}
 \date{2026-08-01}
 
 \begin{document}
@@ -47,6 +49,8 @@ The controller supports two operational modes:
   \item Mock mode: synthesizes robot poses internally for a stable demonstration path using \texttt{--use-mock}.
 \end{itemize}
 
+The controller also converts VRPN orientation data from quaternion form into a planar yaw angle using the standard yaw extraction from quaternion components, ensuring the 2D motion controller operates in the robot's body frame.
+
 \section{Control algorithm}
 \subsection{Look-ahead control point}
 The controller defines a look-ahead point:
@@ -63,6 +67,11 @@ The desired velocity of the look-ahead point is mapped to body-frame commands us
 \[
   \omega = \frac{-\dot{p}_x \sin\theta + \dot{p}_y \cos\theta}{l}
 \]
+This mapping follows from the forward kinematics of the look-ahead point:
+\[
+  \begin{bmatrix} \dot{p}_x \\ \dot{p}_y \end{bmatrix} = \begin{bmatrix} \cos\theta & -l\sin\theta \\ \sin\theta & l\cos\theta \end{bmatrix} \begin{bmatrix} v \\ \omega \end{bmatrix}
+\]
+Because the decoupling matrix has determinant $\det = l$, choosing $l > 0$ avoids singularities and ensures the inverse mapping from $[\dot{p}_x, \dot{p}_y]^T$ to $[v,\omega]^T$ is well-defined.
 This approximation converts the virtual velocity of the look-ahead point into linear and angular velocity commands for the robot.
 
 \subsection{Artificial potential fields}
@@ -78,6 +87,8 @@ The resulting desired velocity of the look-ahead point is:
 \[
   \dot{p} = F_{att} + F_{rep}
 \]
+
+In general, artificial potential fields can suffer from local minima where attractive and repulsive forces cancel. In this implementation, the choice of waypoints and the obstacle interaction are arranged so that the robot is able to navigate around the obstacle without becoming stuck in a stable zero-force trap during the reported trials, while the minimum obstacle distance and repulsion clamping further reduce the risk of weak local minima.
 
 \section{Safety hardening}
 To maintain stable operation and avoid singularities, the controller includes the following safety measures:
@@ -149,22 +160,22 @@ Trial & Success & Time (s) & Collision & Min $\rho$ (m) & Path (m) & Avg $\rho$ 
 
 \begin{figure}[ht]
   \centering
-  \includegraphics[width=0.85\textwidth]{results/plots/trajectories.png}
+  \includegraphics[width=0.85\textwidth]{plots/trajectories.png}
   \caption{Trajectory overlay for 10 randomized trials. Solid lines show agent paths; dashed lines show obstacle paths.}
   \label{fig:trajectories}
 \end{figure}
 
 \begin{figure}[ht]
   \centering
-  \includegraphics[width=0.85\textwidth]{results/plots/rho_trial1.png}
-  \caption{Distance to obstacle versus time for trial 1, showing safe clearance throughout the run.}
+  \includegraphics[width=0.85\textwidth]{plots/rho_trial1.png}
+  \caption{Distance to obstacle versus time for trial 1, shown until the first goal event.}
   \label{fig:rho}
 \end{figure}
 
 \begin{figure}[ht]
   \centering
-  \includegraphics[width=0.85\textwidth]{results/plots/vw_trial1.png}
-  \caption{Linear velocity $v$ and angular velocity $\omega$ versus time for trial 1.}
+  \includegraphics[width=0.85\textwidth]{plots/vw_trial1.png}
+  \caption{Linear velocity $v$ and angular velocity $\omega$ versus time for trial 1, shown until the first goal event.}
   \label{fig:vw}
 \end{figure}
 
@@ -182,7 +193,7 @@ Limitations:
 To reproduce this evaluation:
 \begin{enumerate}
   \item Run \texttt{analysis/sim_evaluator.py} to generate trial logs in \texttt{results/}.
-  \item Run \texttt{analysis/analyze.py} to compute metrics and generate plots in \texttt{results/plots/}.
+  \item Run \texttt{analysis/analyze.py} to compute metrics and generate plots in \texttt{report/plots/}.
   \item Run the controller from \texttt{Simulation/hockey_node.py} with \texttt{--use-mock} for the demo.
 \end{enumerate}
 

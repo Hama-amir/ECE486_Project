@@ -1,6 +1,6 @@
 ﻿---
 title: "ECE 486 Final Project Report"
-author: "Amir Hama"
+author: "Amir Hamadache & Daksh Verma"
 date: "2026-08-01"
 geometry: margin=1in
 fontsize: 11pt
@@ -49,6 +49,8 @@ The controller supports two operational modes:
 - Real VRPN mode: subscribes to an external publisher or simulator providing `/vrpn_mocap/dji_robot_<ID>/pose`.
 - Mock mode: synthesizes robot poses internally for a stable demonstration path using `--use-mock`.
 
+The controller also converts VRPN orientation data from quaternion form into a planar yaw angle using the standard yaw extraction from quaternion components, e.g. `theta = atan2(2*(w*z + x*y), 1 - 2*(y*y + z*z))`, ensuring the 2D motion controller operates in the robot's body frame.
+
 # 4. Control algorithm
 
 ## 4.1 Look-ahead control point
@@ -65,6 +67,12 @@ The desired velocity of the look-ahead point is mapped to body-frame commands us
 
 \[ v = \dot{p}_x \cos\theta + \dot{p}_y \sin\theta \]
 \[ \omega = \frac{-\dot{p}_x \sin\theta + \dot{p}_y \cos\theta}{l} \]
+
+This mapping follows from the forward kinematics of the look-ahead point:
+
+\[ \begin{bmatrix} \dot{p}_x \\ \dot{p}_y \end{bmatrix} = \begin{bmatrix} \cos\theta & -l\sin\theta \\ \sin\theta & l\cos\theta \end{bmatrix} \begin{bmatrix} v \\ \omega \end{bmatrix}. \]
+
+Because the decoupling matrix has determinant $\det = l$, choosing $l > 0$ avoids singularities and ensures the inverse mapping from $[\dot{p}_x, \dot{p}_y]^T$ to $[v,\omega]^T$ is well-defined.
 
 This approximation converts the virtual velocity of the look-ahead point into linear and angular velocity commands for the robot.
 
@@ -83,6 +91,8 @@ The controller combines attractive and repulsive forces:
 The resulting desired velocity of the look-ahead point is:
 
 \[ \dot{p} = F_{att} + F_{rep} \]
+
+In general, artificial potential fields can suffer from local minima where the attractive and repulsive forces cancel out. In this implementation, the goal layout and obstacle motion were chosen so that the robot can usually skirt the obstacle without encountering a stable zero-force trap in the test trials, but the controller still includes a non-zero minimum obstacle distance and force clamping to reduce the risk of sticking in weak local minima.
 
 # 5. Safety hardening
 
@@ -150,11 +160,11 @@ The following metrics summary was produced by `analysis/analyze.py` and saved in
 
 ## 7.3 Figures
 
-![Figure 1: Trajectory overlay for 10 randomized trials, with solid lines showing the agent path and dashed lines showing the obstacle path.](results/plots/trajectories.png)
+![Figure 1: Trajectory overlay for 10 randomized trials, with solid lines showing the agent path and dashed lines showing the obstacle path.](plots/trajectories.png)
 
-![Figure 2: Distance to obstacle versus time for trial 1, showing a safe clearance throughout the run.](results/plots/rho_trial1.png)
+![Figure 2: Distance to obstacle versus time for trial 1, showing a safe clearance through the run up to the first goal event.](plots/rho_trial1.png)
 
-![Figure 3: Linear velocity \(v\) and angular velocity \(\omega\) versus time for trial 1.](results/plots/vw_trial1.png)
+![Figure 3: Linear velocity \(v\) and angular velocity \(\omega\) versus time for trial 1, shown until the first goal event in the run.](plots/vw_trial1.png)
 
 # 8. Discussion and limitations
 
@@ -171,7 +181,7 @@ Limitations:
 To reproduce this evaluation:
 
 1. Run `analysis/sim_evaluator.py` to generate trial logs in `results/`.
-2. Run `analysis/analyze.py` to compute metrics and generate plots in `results/plots/`.
+2. Run `analysis/analyze.py` to compute metrics and generate plots in `report/plots/`.
 3. Run the controller directly from `Simulation/hockey_node.py` with `--use-mock` for the demo.
 
 # 10. Submission contents

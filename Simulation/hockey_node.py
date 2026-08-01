@@ -136,9 +136,9 @@ class SimulatorPlayerNode(Node):
 
         # Artificial Potential Fields
         # Gain constants
-        k_att = 0.8
-        k_rep = 0.3
-        d_0 = 0.8  # Influence distance
+        k_att = 1.0
+        k_rep = 0.5
+        d_0 = 1.0  # Influence distance
 
         # Attractive force
         F_att_x = k_att * (target_x - p_x)

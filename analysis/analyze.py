@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 analyze.py
-Reads CSVs in ../results, computes metrics and outputs plots into ../results/plots
+Reads CSVs in ../results, computes metrics and outputs plots into ../report/plots
 """
 import glob
 import os
@@ -18,7 +18,7 @@ except Exception:
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
 RESULTS = os.path.join(ROOT, 'results')
-PLOTS = os.path.join(RESULTS, 'plots')
+PLOTS = os.path.join(ROOT, 'report', 'plots')
 if HAVE_MPL:
     os.makedirs(PLOTS, exist_ok=True)
 
@@ -126,22 +126,29 @@ if HAVE_MPL:
     # distance to obstacle over time for first trial
     times = []
     rhos = []
+    dist_to_target = []
     with open(files[0], 'r') as fh:
         reader = csv.reader(fh)
         for row in reader:
-            if not row: continue
+            if not row:
+                continue
             vals = list(map(float, row))
             times.append(vals[0])
             rhos.append(vals[11])
+            dist_to_target.append(vals[8])
+    # plot only until the first goal event for consistency with time-to-goal metrics
+    goal_index = next((i for i,d in enumerate(dist_to_target) if d < threshold_goal), len(times)-1)
+    times_trunc = times[:goal_index+1]
+    rhos_trunc = rhos[:goal_index+1]
     plt.figure()
-    plt.plot(times, rhos)
+    plt.plot(times_trunc, rhos_trunc)
     plt.xlabel('time (s)')
     plt.ylabel('rho (m)')
-    plt.title('Distance to obstacle (trial 1)')
+    plt.title('Distance to obstacle until goal (trial 1)')
     plt.grid(True)
     plt.savefig(os.path.join(PLOTS, 'rho_trial1.png'))
     plt.close()
-
+ 
     # v and w over time for first trial
     times = []
     vs = []
@@ -149,17 +156,21 @@ if HAVE_MPL:
     with open(files[0], 'r') as fh:
         reader = csv.reader(fh)
         for row in reader:
-            if not row: continue
+            if not row:
+                continue
             vals = list(map(float, row))
             times.append(vals[0])
             vs.append(vals[12])
             ws.append(vals[13])
+    times_trunc = times[:goal_index+1]
+    vs_trunc = vs[:goal_index+1]
+    ws_trunc = ws[:goal_index+1]
     plt.figure()
-    plt.plot(times, vs, label='v')
-    plt.plot(times, ws, label='w')
+    plt.plot(times_trunc, vs_trunc, label='v')
+    plt.plot(times_trunc, ws_trunc, label='w')
     plt.xlabel('time (s)')
     plt.legend()
-    plt.title('v and w (trial 1)')
+    plt.title('v and w until goal (trial 1)')
     plt.grid(True)
     plt.savefig(os.path.join(PLOTS, 'vw_trial1.png'))
     plt.close()
