@@ -1,137 +1,193 @@
-ECE 486 — Final Project Report (Draft)
+﻿---
+title: "ECE 486 Final Project Report"
+author: "Amir Hama"
+date: "2026-08-01"
+geometry: margin=1in
+fontsize: 11pt
+---
 
-Authors: Amir Hama
-Course: ECE 486 — Robotics Project
-Date: 2026-08-01
+\tableofcontents
+\newpage
 
-Abstract
+# Table of Figures
 
-This project implements and validates waypoint navigation and obstacle avoidance for DJI RoboMaster robots in a 4 m × 4 m environment using the multi_robomaster_ros_sim simulator and a simulator-free demo path for reproducible grading. The control strategy uses an approximate linearization about a look-ahead control point and artificial potential fields for obstacle avoidance. A mock VRPN publisher and headless demo path were added so the solution can be validated without the GUI-based simulator.
+\listoffigures
 
-1. Problem statement and constraints
+1. Figure 1: Trajectory overlay for 10 randomized trials.
+2. Figure 2: Distance to obstacle versus time for trial 1.
+3. Figure 3: Linear velocity \(v\) and angular velocity \(\omega\) versus time for trial 1.
 
-- Workspace: a square world with x,y ∈ [-2, 2] meters.
-- Robots: mobile bases only (no arm/gripper). Movement and inter-robot avoidance are required.
-- Interfaces: subscribe to /vrpn_mocap/dji_robot_<ID>/pose (geometry_msgs/PoseStamped) and publish /robot<ID>/cmd_vel (geometry_msgs/Twist).
-- Grading expects reliable navigation to waypoints while avoiding other robots; no manipulation is required.
+\newpage
 
-2. System architecture
+# Abstract
 
-- Simulation/ (repo): contains the controller and mock VRPN.
-  - hockey_node.py: control node (supports --use-mock and --log-file).
-  - mock_vrpn.py: lightweight PoseStamped publisher for reproducible testing.
-- The controller can run in two modes: connected to VRPN publisher (real or simulator) or --use-mock mode which synthesizes robot poses.
+This report documents the final ECE 486 project implementation for DJI RoboMaster mobility and obstacle avoidance in a 4 m × 4 m environment. The solution uses a look-ahead approximate linearization controller combined with artificial potential fields. A simulator-free evaluation path and mock VRPN publisher were added to ensure reproducible grading without depending on the GUI-based simulator.
 
-3. Control algorithm
+# 1. Introduction
 
-3.1 Look-ahead control point
-- Control point p = [x + l cos θ, y + l sin θ]^T, with look-ahead distance l = 0.3 m.
-- The control objective drives p toward a sequence of patrol waypoints using an attractive force.
+The task is to implement a controller that moves a robot to desired poses while avoiding other robots in a bounded workspace. The available simulator provides VRPN pose feedback but does not model arm, gripper, or hockey objects. The focus is therefore on motion planning, control, and obstacle avoidance.
 
-3.2 Approximate linearization for differential-drive-like control
-Given p_dot = [ṗ_x, ṗ_y]^T, the controller computes commanded linear and angular velocities as:
+# 2. Scope and requirements
 
-v = ṗ_x cos θ + ṗ_y sin θ
-ω = (-ṗ_x sin θ + ṗ_y cos θ) / l
+- Workspace: square environment with x, y ∈ [-2, 2] meters.
+- Robot: mobile base only; no arm, gripper, puck, or goal handling is required.
+- Inputs: VRPN pose from `/vrpn_mocap/dji_robot_<ID>/pose` (geometry_msgs/PoseStamped).
+- Outputs: velocity commands to `/robot<ID>/cmd_vel` (geometry_msgs/Twist).
+- Success criteria: reach target poses reliably and avoid collisions with another robot.
 
-These expressions approximate the mapping from ṗ to body-frame velocities at the look-ahead point.
+# 3. System architecture
 
-3.3 Artificial potential fields
-- Attractive force: F_att = ζ (q_target - p)
-- Repulsive force (from an obstacle at q_obs): when ρ = ||p - q_obs|| < ρ0,
-  F_rep = η (1/ρ - 1/ρ0) (1/ρ^2) ∇ρ
-- The total commanded virtual velocity of p is ṗ = F_att + F_rep (scaled appropriately).
+The repository contains a self-contained evaluation framework:
 
-4. Safety hardening and practical considerations
+- `Simulation/hockey_node.py`: controller node implementing waypoint navigation, potential-field obstacle avoidance, safety hardening, and telemetry logging.
+- `Simulation/mock_vrpn.py`: synthetic VRPN publisher for headless testing and reproducibility.
+- `analysis/sim_evaluator.py`: headless evaluator that generates trials and CSV logs reproducing the controller behavior without ROS.
+- `analysis/analyze.py`: metrics and plotting script for evaluating trial data.
 
-To ensure safe, stable behavior the controller includes several practical measures:
-- Minimum obstacle distance clamp: min_rho = 0.12 m to avoid singular repulsion magnitudes.
-- Clamp maximal repulsive force magnitude: max_rep_force = 2.0 (tunable) to avoid destabilizing torques.
-- Velocity saturation: max_v = 0.8 m/s, max_ω = 3.0 rad/s.
-- Exponential smoothing of commands (α = 0.4) to reduce jerk and oscillation.
-- CSV telemetry logging for offline analysis and reproducibility.
+The controller supports two operational modes:
 
-5. Parameters (recommended defaults)
-- l (look-ahead distance): 0.30 m
-- ζ (attractive gain): 1.0
-- η (repulsive gain): 0.5
-- ρ0 (repulsive radius): 1.0 m
-- min_rho: 0.12 m
-- max_rep_force: 2.0
-- max_v: 0.8 m/s
-- max_ω: 3.0 rad/s
-- smoothing α: 0.4
+- Real VRPN mode: subscribes to an external publisher or simulator providing `/vrpn_mocap/dji_robot_<ID>/pose`.
+- Mock mode: synthesizes robot poses internally for a stable demonstration path using `--use-mock`.
 
-6. Experimental procedure
+# 4. Control algorithm
 
-- Use the Simulation demo with --use-mock to run a headless trial and collect telemetry CSVs (see Simulation/README.md for exact commands).
-- Suggested experiments: N=10 trials for each scenario with varied initial robot positions.
-  - Scenario A: static obstacle (obstacle robot stands at fixed pose near path)
-  - Scenario B: moving obstacle (obstacle robot follows simple patrol path)
-- Metrics to compute per trial: success (reached waypoint within tolerance), collisions (ρ < collision_threshold), time-to-goal, path length, minimum distance to obstacle, average distance to obstacle.
+## 4.1 Look-ahead control point
 
-7. Results (simulation-based evaluation)
+The controller defines a look-ahead point:
 
-The headless evaluation suite ran N=10 trials using a lightweight Python simulator that reproduces the controller's look-ahead + potential-field behavior (see analysis/sim_evaluator.py). The CSV logs are in results/, and a metrics summary was produced at results/metrics_summary.csv.
+\[ p = \begin{bmatrix} x + l\cos\theta \\ y + l\sin\theta \end{bmatrix}, \qquad l = 0.30\text{ m} \]
 
-Metrics summary (per-trial)
-- Columns: file, success (1=goal reached), time_to_goal (s), collision (1=yes), min_rho (m), path_length (m), avg_rho (m)
+This point is used to linearize the mobile base motion and generate target-relative velocities.
 
-run_log_robot1_01.csv, 1, 1.2, 0, 0.8453, 0.6326, 1.4810
-run_log_robot1_02.csv, 1, 2.8, 0, 0.6224, 2.0102, 1.4157
-run_log_robot1_03.csv, 1, 1.3, 0, 0.9174, 0.6361, 1.5442
-run_log_robot1_04.csv, 1, 2.2, 0, 0.7227, 1.5093, 1.4746
-run_log_robot1_05.csv, 1, 3.15, 0, 0.4693, 2.2726, 1.3820
-run_log_robot1_06.csv, 1, 3.65, 0, 0.6685, 2.5319, 1.3804
-run_log_robot1_07.csv, 1, 1.65, 0, 0.9171, 1.0433, 1.5955
-run_log_robot1_08.csv, 1, 2.2, 0, 0.9159, 1.3229, 1.5891
-run_log_robot1_09.csv, 1, 2.55, 0, 0.9122, 1.7726, 1.4925
-run_log_robot1_10.csv, 1, 2.55, 0, 0.9075, 1.6013, 1.5715
+## 4.2 Approximate linearization
 
-Aggregate observations
-- Success rate: 10/10 trials reached the goal within the threshold (0.20 m) in the allotted time.
-- Collisions: 0/10 trials (no trial had min_rho < 0.12 m).
-- Time-to-goal: varies across trials depending on initialization and obstacle phase (min ≈ 1.2 s, max ≈ 3.65 s).
-- Path length: varied between ≈0.63 m and ≈2.53 m reflecting different avoidance maneuvers.
+The desired velocity of the look-ahead point is mapped to body-frame commands using:
 
-Plots
-- The analysis script produced the following plots in results/plots/.
+\[ v = \dot{p}_x \cos\theta + \dot{p}_y \sin\theta \]
+\[ \omega = \frac{-\dot{p}_x \sin\theta + \dot{p}_y \cos\theta}{l} \]
 
-  Trajectories (agent solid, obstacle dashed):
-  ![Trajectories](D:/Amir/University_of_Waterloo/Year_4/4A/ECE_486.worktrees/ece486-simulator-strategy-guide/results/plots/trajectories.png)
+This approximation converts the virtual velocity of the look-ahead point into linear and angular velocity commands for the robot.
 
-  Distance to obstacle (trial 1):
-  ![Distance to obstacle (trial1)](D:/Amir/University_of_Waterloo/Year_4/4A/ECE_486.worktrees/ece486-simulator-strategy-guide/results/plots/rho_trial1.png)
+## 4.3 Artificial potential fields
 
-  Linear and angular velocity (trial 1):
-  ![v and w (trial1)](D:/Amir/University_of_Waterloo/Year_4/4A/ECE_486.worktrees/ece486-simulator-strategy-guide/results/plots/vw_trial1.png)
+The controller combines attractive and repulsive forces:
 
-Notes
-- The simulated evaluation confirms the controller reaches waypoints while avoiding the obstacle in all tested randomized initializations.
-- These results are produced by a headless simulator that reproduces the controller math; running the controller in the real simulator (multi_robomaster_ros_sim) or on hardware may produce slightly different timings due to dynamics and latency.
+- Attractive force:
 
-8. Discussion and limitations
+\[ F_{att} = \zeta\,(q_{target} - p) \]
 
-- The mock-based demo ensures reproducibility but does not exercise the exact simulator physics; however the control logic and interfaces are validated.
-- The original simulator GUI failure (matplotlib/Qt) in headless Docker/WSL environments was avoided by providing the mock path; the simulator code was not modified per project constraints.
-- Potential fields are susceptible to local minima; future work could add randomized waypoint perturbations, blended global planners, or dynamic potential shaping.
+- Repulsive force from an obstacle at position \(q_{obs}\), valid when \(\rho = \|p - q_{obs}\| < \rho_0\):
 
-9. How to run (summary)
+\[ F_{rep} = \eta\left(\frac{1}{\rho} - \frac{1}{\rho_0}\right)\frac{1}{\rho^2} \nabla \rho \]
 
-- See Simulation/README.md for the single-command Docker demo and alternate host-run commands. The controller supports --use-mock, --log-file, and CLI tuning of key parameters.
+The resulting desired velocity of the look-ahead point is:
 
-10. Submission contents
+\[ \dot{p} = F_{att} + F_{rep} \]
 
-- Simulation/ (code + mock)
-- report.md (this file)
-- sample logs/plots/ (to be generated and added)
-- run_demo.sh (optional automation script)
+# 5. Safety hardening
 
-Appendix
-- Key file references:
-  - Simulation/hockey_node.py
-  - Simulation/mock_vrpn.py
+To maintain stable operation and avoid singularities, the controller includes the following safety measures:
 
+- **Minimum obstacle distance clamp**: \(\rho_{min} = 0.12\,\text{m}\).
+- **Maximum repulsive force**: clamp repulsion magnitude to 2.0 to prevent destabilizing commands.
+- **Velocity saturation**: \(v_{max} = 0.8\,\text{m/s}\), \(\omega_{max} = 3.0\,\text{rad/s}\).
+- **Command smoothing**: exponential smoothing with \(\alpha = 0.4\) to reduce oscillation and jerk.
+- **Telemetry logging**: output CSV logs for offline analysis.
 
-Notes
-- This is a draft report. After you confirm, I can run experiments, generate the recommended plots, fill in the Results section, and produce a PDF version (report.pdf) to include in the submission.
+# 6. Parameters
+
+| Parameter | Description | Value |
+|-----------|-------------|-------|
+| \(l\) | Look-ahead distance | 0.30 m |
+| \(\zeta\) | Attractive gain | 1.0 |
+| \(\eta\) | Repulsive gain | 0.5 |
+| \(\rho_0\) | Repulsion radius | 1.0 m |
+| min_rho | Minimum obstacle distance | 0.12 m |
+| max_rep_force | Max repulsion magnitude | 2.0 |
+| max_v | Maximum linear speed | 0.8 m/s |
+| max_\(\omega\) | Maximum angular speed | 3.0 rad/s |
+| \(\alpha\) | Command smoothing factor | 0.4 |
+
+# 7. Experimental evaluation
+
+## 7.1 Methodology
+
+The evaluation uses a headless trial generator that reproduces the controller's motion commands and obstacle interaction without ROS. The analysis script computes:
+
+- Success: goal reached within 0.20 m.
+- Collision: minimum \(\rho < 0.12\,\text{m}\).
+- Time to goal.
+- Path length.
+- Minimum distance to the obstacle.
+- Average obstacle distance.
+
+A total of 10 randomized trials were generated and analyzed.
+
+## 7.2 Results
+
+The following metrics summary was produced by `analysis/analyze.py` and saved in `results/metrics_summary.csv`.
+
+- Success rate: 10 / 10 trials.
+- Collisions: 0 / 10 trials.
+- Time to goal: 1.2 s to 3.65 s.
+- Path length: 0.63 m to 2.53 m.
+- Minimum distance to obstacle: always above 0.46 m.
+
+### 7.2.1 Per-trial results
+
+| Trial | Success | Time to goal (s) | Collision | Min \(\rho\) (m) | Path length (m) | Avg \(\rho\) (m) |
+|-------|--------:|-----------------:|----------:|------------------:|----------------:|------------------:|
+| 1 | ✓ | 1.20 | ✗ | 0.845 | 0.633 | 1.481 |
+| 2 | ✓ | 2.80 | ✗ | 0.622 | 2.010 | 1.416 |
+| 3 | ✓ | 1.30 | ✗ | 0.917 | 0.636 | 1.544 |
+| 4 | ✓ | 2.20 | ✗ | 0.723 | 1.509 | 1.475 |
+| 5 | ✓ | 3.15 | ✗ | 0.469 | 2.273 | 1.382 |
+| 6 | ✓ | 3.65 | ✗ | 0.668 | 2.532 | 1.380 |
+| 7 | ✓ | 1.65 | ✗ | 0.917 | 1.043 | 1.596 |
+| 8 | ✓ | 2.20 | ✗ | 0.916 | 1.323 | 1.589 |
+| 9 | ✓ | 2.55 | ✗ | 0.912 | 1.773 | 1.492 |
+| 10 | ✓ | 2.55 | ✗ | 0.908 | 1.601 | 1.572 |
+
+## 7.3 Figures
+
+![Figure 1: Trajectory overlay for 10 randomized trials, with solid lines showing the agent path and dashed lines showing the obstacle path.](results/plots/trajectories.png)
+
+![Figure 2: Distance to obstacle versus time for trial 1, showing a safe clearance throughout the run.](results/plots/rho_trial1.png)
+
+![Figure 3: Linear velocity \(v\) and angular velocity \(\omega\) versus time for trial 1.](results/plots/vw_trial1.png)
+
+# 8. Discussion and limitations
+
+The evaluation demonstrates that the controller meets the core objectives for waypoint navigation and obstacle avoidance in a reproducible headless setting. All trials reached the goal without collisions, and the commanded motions remained within safe bounds.
+
+Limitations:
+
+- The headless evaluator reproduces the controller logic but does not model the full simulator dynamics or ROS 2 communication latency.
+- The original simulator GUI and Matplotlib backend issues were avoided by using the mock evaluation path.
+- Potential-field controllers can encounter local minima; future improvements might include global path planning or stochastic goal perturbation.
+
+# 9. Reproducibility
+
+To reproduce this evaluation:
+
+1. Run `analysis/sim_evaluator.py` to generate trial logs in `results/`.
+2. Run `analysis/analyze.py` to compute metrics and generate plots in `results/plots/`.
+3. Run the controller directly from `Simulation/hockey_node.py` with `--use-mock` for the demo.
+
+# 10. Submission contents
+
+The final submission includes:
+
+- `Simulation/` for the controller and mock VRPN demo.
+- `analysis/` for the evaluation suite and plotting tools.
+- `results/` for trial logs and metrics.
+- `report.md` and `report.tex` for the final written report.
+
+# Appendix
+
+Key files:
+
+- `Simulation/hockey_node.py`
+- `Simulation/mock_vrpn.py`
+- `analysis/sim_evaluator.py`
+- `analysis/analyze.py`
