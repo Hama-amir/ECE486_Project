@@ -95,10 +95,16 @@ Aggregate observations
 - Path length: varied between ≈0.63 m and ≈2.53 m reflecting different avoidance maneuvers.
 
 Plots
-- The analysis script attempts to generate plots under results/plots/. In this environment matplotlib was not available, so plots were not produced here. If you run analysis/analyze.py on a machine with matplotlib installed, the following plots will be created:
-  - trajectories.png — trajectory overlays (agent solid lines, obstacle dashed)
-  - rho_trial1.png — distance-to-obstacle vs time (trial 1)
-  - vw_trial1.png — v and ω vs time (trial 1)
+- The analysis script produced the following plots in results/plots/.
+
+  Trajectories (agent solid, obstacle dashed):
+  ![Trajectories](D:/Amir/University_of_Waterloo/Year_4/4A/ECE_486.worktrees/ece486-simulator-strategy-guide/results/plots/trajectories.png)
+
+  Distance to obstacle (trial 1):
+  ![Distance to obstacle (trial1)](D:/Amir/University_of_Waterloo/Year_4/4A/ECE_486.worktrees/ece486-simulator-strategy-guide/results/plots/rho_trial1.png)
+
+  Linear and angular velocity (trial 1):
+  ![v and w (trial1)](D:/Amir/University_of_Waterloo/Year_4/4A/ECE_486.worktrees/ece486-simulator-strategy-guide/results/plots/vw_trial1.png)
 
 Notes
 - The simulated evaluation confirms the controller reaches waypoints while avoiding the obstacle in all tested randomized initializations.
