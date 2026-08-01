@@ -70,13 +70,39 @@ To ensure safe, stable behavior the controller includes several practical measur
   - Scenario B: moving obstacle (obstacle robot follows simple patrol path)
 - Metrics to compute per trial: success (reached waypoint within tolerance), collisions (ρ < collision_threshold), time-to-goal, path length, minimum distance to obstacle, average distance to obstacle.
 
-7. Results (placeholder)
+7. Results (simulation-based evaluation)
 
-- Include tables and plots here once experiments are run. Recommended plots:
-  - Trajectory overlay (ground truth positions) of agent and obstacle across trials.
-  - Distance to obstacle vs time.
-  - v and ω vs time.
-  - Histogram of time-to-goal across trials.
+The headless evaluation suite ran N=10 trials using a lightweight Python simulator that reproduces the controller's look-ahead + potential-field behavior (see analysis/sim_evaluator.py). The CSV logs are in results/, and a metrics summary was produced at results/metrics_summary.csv.
+
+Metrics summary (per-trial)
+- Columns: file, success (1=goal reached), time_to_goal (s), collision (1=yes), min_rho (m), path_length (m), avg_rho (m)
+
+run_log_robot1_01.csv, 1, 1.2, 0, 0.8453, 0.6326, 1.4810
+run_log_robot1_02.csv, 1, 2.8, 0, 0.6224, 2.0102, 1.4157
+run_log_robot1_03.csv, 1, 1.3, 0, 0.9174, 0.6361, 1.5442
+run_log_robot1_04.csv, 1, 2.2, 0, 0.7227, 1.5093, 1.4746
+run_log_robot1_05.csv, 1, 3.15, 0, 0.4693, 2.2726, 1.3820
+run_log_robot1_06.csv, 1, 3.65, 0, 0.6685, 2.5319, 1.3804
+run_log_robot1_07.csv, 1, 1.65, 0, 0.9171, 1.0433, 1.5955
+run_log_robot1_08.csv, 1, 2.2, 0, 0.9159, 1.3229, 1.5891
+run_log_robot1_09.csv, 1, 2.55, 0, 0.9122, 1.7726, 1.4925
+run_log_robot1_10.csv, 1, 2.55, 0, 0.9075, 1.6013, 1.5715
+
+Aggregate observations
+- Success rate: 10/10 trials reached the goal within the threshold (0.20 m) in the allotted time.
+- Collisions: 0/10 trials (no trial had min_rho < 0.12 m).
+- Time-to-goal: varies across trials depending on initialization and obstacle phase (min ≈ 1.2 s, max ≈ 3.65 s).
+- Path length: varied between ≈0.63 m and ≈2.53 m reflecting different avoidance maneuvers.
+
+Plots
+- The analysis script attempts to generate plots under results/plots/. In this environment matplotlib was not available, so plots were not produced here. If you run analysis/analyze.py on a machine with matplotlib installed, the following plots will be created:
+  - trajectories.png — trajectory overlays (agent solid lines, obstacle dashed)
+  - rho_trial1.png — distance-to-obstacle vs time (trial 1)
+  - vw_trial1.png — v and ω vs time (trial 1)
+
+Notes
+- The simulated evaluation confirms the controller reaches waypoints while avoiding the obstacle in all tested randomized initializations.
+- These results are produced by a headless simulator that reproduces the controller math; running the controller in the real simulator (multi_robomaster_ros_sim) or on hardware may produce slightly different timings due to dynamics and latency.
 
 8. Discussion and limitations
 
