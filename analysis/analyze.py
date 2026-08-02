@@ -102,6 +102,7 @@ if HAVE_MPL:
         ys = []
         obs_xs = []
         obs_ys = []
+        dist_to_target = []
         with open(f, 'r') as fh:
             reader = csv.reader(fh)
             for row in reader:
@@ -112,8 +113,12 @@ if HAVE_MPL:
                 ys.append(vals[2])
                 obs_xs.append(vals[9])
                 obs_ys.append(vals[10])
-        plt.plot(xs, ys, alpha=0.7)
-        plt.plot(obs_xs, obs_ys, '--', alpha=0.6)
+                dist_to_target.append(vals[8])
+        # truncate both agent and obstacle traces to the same goal-index rows
+        goal_index = next((i for i,d in enumerate(dist_to_target) if d < threshold_goal), len(xs)-1)
+        plt.plot(xs[:goal_index+1], ys[:goal_index+1], alpha=0.7)
+        plt.plot(obs_xs[:goal_index+1], obs_ys[:goal_index+1], '--', alpha=0.6)
+        # this ensures obstacle arcs are drawn only for the trial duration, not a full period
     plt.xlabel('x (m)')
     plt.ylabel('y (m)')
     plt.title('Trajectories (agent solid, obstacle dashed)')

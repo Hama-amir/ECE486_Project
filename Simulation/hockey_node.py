@@ -163,6 +163,12 @@ class SimulatorPlayerNode(Node):
         self.declare_parameter('wall_margin', _DEFAULTS['wall_margin'])
         self.declare_parameter('obs_stale_timeout', _DEFAULTS['obs_stale_timeout'])
 
+        # Obstacle pose state — initialized unconditionally so it always exists,
+        # regardless of whether we're in mock or real (VRPN) mode.
+        self.obs_x = None
+        self.obs_y = None
+        self.obs_ts = None
+
         # read params into instance fields for use by ROS node
         self.l = float(self.get_parameter('l').value)
         self._param_k_att = float(self.get_parameter('k_att').value)
@@ -290,16 +296,15 @@ class SimulatorPlayerNode(Node):
         # check obstacle recency
         obs_x = None
         obs_y = None
-        if getattr(self, 'obs_ts', None) is not None:
+        if self.obs_ts is not None:
             if time.time() - self.obs_ts < self._obs_stale_timeout:
                 obs_x = self.obs_x
                 obs_y = self.obs_y
             else:
                 # stale obstacle data
                 self.get_logger().warning('Obstacle pose data is stale; ignoring obstacle until updated')
-        elif self.obs_x is not None and self.obs_y is not None:
-            obs_x = self.obs_x
-            obs_y = self.obs_y
+        # else: no obstacle pose has ever been received — obs_x/obs_y remain None,
+        # and compute_control_from_state() handles that by skipping repulsion.
 
         # Use module-level compute function so external evaluators can import and reproduce exact behavior
         config = {
