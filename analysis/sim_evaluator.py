@@ -21,16 +21,20 @@ args = parser.parse_args()
 random.seed(args.seed)
 os.makedirs(args.outdir, exist_ok=True)
 
-# controller parameters (same defaults as report)
-l = 0.30
-zeta = 1.0
-eta = 0.5
-rho0 = 1.0
-min_rho = 0.12
-max_rep_force = 2.0
-max_v = 0.8
-max_w = 3.0
-alpha = 0.4  # smoothing
+# Controller-driven evaluator: import the real compute function from hockey_node
+import os
+import sys
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+try:
+    # import the module as a plain python module - this must not instantiate rclpy node
+    from Simulation.hockey_node import compute_control_from_state, _DEFAULTS
+except Exception:
+    try:
+        from hockey_node import compute_control_from_state, _DEFAULTS
+    except Exception as e:
+        raise
 
 # waypoint target (single goal for tests)
 target_x = 1.5
@@ -62,48 +66,31 @@ for ti in range(args.n):
         obs_y = obs_center_y + obs_radius * math.sin(obs_omega * t + ti * 0.4)
 
         # control point p
-        p_x = x + l * math.cos(theta)
-        p_y = y + l * math.sin(theta)
+        p_x = x + _DEFAULTS['l'] * math.cos(theta)
+        p_y = y + _DEFAULTS['l'] * math.sin(theta)
 
-        # attractive
-        F_att_x = zeta * (target_x - p_x)
-        F_att_y = zeta * (target_y - p_y)
+        # call the real compute function so outputs match the ROS node exactly
+        v_out, w_out, rho, forces, v_unsm, w_unsm = compute_control_from_state(
+            p_x, p_y, theta, target_x, target_y, obs_x, obs_y,
+            config={
+                'l': _DEFAULTS['l'],
+                'k_att': _DEFAULTS['k_att'],
+                'k_rep': _DEFAULTS['k_rep'],
+                'd_0': _DEFAULTS['d_0'],
+                'min_rho': _DEFAULTS['min_rho'],
+                'max_rep_force': _DEFAULTS['max_rep_force'],
+                'max_v': _DEFAULTS['max_v'],
+                'max_w': _DEFAULTS['max_w'],
+                'smoothing_alpha': _DEFAULTS['smoothing_alpha'],
+                'workspace_limit': _DEFAULTS['workspace_limit'],
+                'wall_margin': _DEFAULTS['wall_margin']
+            },
+            prev_v=v_s, prev_w=w_s
+        )
 
-        # repulsive
-        dvec_x = p_x - obs_x
-        dvec_y = p_y - obs_y
-        rho = math.hypot(dvec_x, dvec_y)
-        if rho < min_rho:
-            rho = min_rho
-        F_rep_x = 0.0
-        F_rep_y = 0.0
-        if rho < rho0:
-            grad_x = dvec_x / rho
-            grad_y = dvec_y / rho
-            mag = eta * (1.0 / rho - 1.0 / rho0) * (1.0 / (rho * rho))
-            F_rep_x = mag * grad_x
-            F_rep_y = mag * grad_y
-            # clamp magnitude
-            magF = math.hypot(F_rep_x, F_rep_y)
-            if magF > max_rep_force:
-                scale = max_rep_force / magF
-                F_rep_x *= scale
-                F_rep_y *= scale
-
-        p_dot_x = F_att_x + F_rep_x
-        p_dot_y = F_att_y + F_rep_y
-
-        # approximate linearization
-        v = p_dot_x * math.cos(theta) + p_dot_y * math.sin(theta)
-        w = (-p_dot_x * math.sin(theta) + p_dot_y * math.cos(theta)) / l
-
-        # saturate
-        v = max(-max_v, min(max_v, v))
-        w = max(-max_w, min(max_w, w))
-
-        # smoothing
-        v_s = alpha * v + (1 - alpha) * v_s
-        w_s = alpha * w + (1 - alpha) * w_s
+        # use the smoothed outputs as the command applied to the kinematic simulation
+        v_s = v_out
+        w_s = w_out
 
         # kinematics (unicycle)
         x = x + v_s * math.cos(theta) * args.dt
